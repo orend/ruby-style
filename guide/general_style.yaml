@@ -1,21 +1,18 @@
 ---
-- :rule: "Avoid 1.9-style hash syntax"
-  :why: "This syntax only works if your hash keys are symbols; otherwise you have to use the old syntax.  There's a very limited benefit to the new syntax, and the cost is two ways of doing things, increasing mental overhead when reading/writing code.  Further, for libraries, 1.8 compatibility is nice to achieve"
-- :rule: "For libraries or CLI apps, stick to 1.8-compatible features where possible"
-  :why: "Many shops are still on 1.8, and many systems have 1.8 as the default, so there's no reason not to keep 1.8 compatible for code that will be shared"
+
 - :rule: "Blocks that return a value you intend to use should use curly braces"
   :why: "This visually sets them off, and makes for a cleaner chaning syntax"
   :example: |
     # Wrong; calling a method on 'end' is awkward looking
     male_teens = Customers.all.select do |customer|
-      customer.gender == :male 
+      customer.gender == :male
     end.reject do |man|
       man.age > 19 || man.age < 13
     end
 
     # Right; the chaining and use of the comprehensions is clear
     male_teens = Customers.all.select { |customer|
-      customer.gender == :male 
+      customer.gender == :male
     }.reject { |man|
       man.age > 19 || man.age < 13
     }
