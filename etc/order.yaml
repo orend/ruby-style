@@ -1,15 +1,15 @@
 ---
+- design
 - files
 - formatting
 - naming/variables
 - naming/methods
 - naming/classes_and_modules
 - general_style
-- design
-- documentation/general
-- documentation/readme
-- documentation/methods
-- documentation/classes_and_modules
+#- documentation/general
+#- documentation/readme
+#- documentation/methods
+#- documentation/classes_and_modules
 - testing
 - rails/controllers
 - rails/active_record

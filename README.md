@@ -4,6 +4,265 @@
 
 #### Always default to using the style of the code you are modifying
 
+## Design
+
+#### Classes should do one thing and one thing only
+
+
+
+#### If a class has only one method, consider using a lambda or proc instead
+
+Why? _A class with one method, especially Doer.do, is just a function, so make it a lambda_
+
+
+#### For a base class with abstract methods, include the methods in the base class and have them raise.
+
+Why? _This gives you a single place to document which methods subclasses are expected to implement, and ensures that, at least at runtime, they **are** implemented_
+
+
+#### Avoid instantiating classes inside other classes.  Prefer dependency injection and default parameter values.
+
+Why? _This makes it easier to test the classes, but doesn't require Herculean efforts to instantiate classes at runtime:_
+
+```ruby
+class PersonFormatter
+  def format(person)
+    # whatever
+  end
+end
+
+# Wrong; we are tightly coupled to an implementation and have to use
+# crazy mocks to fake this out
+class View
+  def render
+    # code
+    puts PersonFormatter.new.format(person)
+    # more code
+  end
+
+
+# Correct; Option 1 - constructor injection
+class View
+  def initialize(person_formatter=PersonFormatter.new)
+    @person_formatter = person_formatter
+  end
+
+  def render
+    # code
+    puts @person_formatter.format(person)
+    # more code
+  end
+end
+
+# Correct; Option 2 - setter injection with a sensible default
+class View
+  attr_writer :person_formatter
+  def initialize
+    @person_formatter = PersonFormatter.new
+  end
+
+  def render
+    # code
+    puts @person_formatter.format(person)
+    # more code
+  end
+end
+```
+
+#### Don't make methods public unless they are part of the public interface
+
+Why? _Public is the way to formally document the contract of your class.  Putting methods that shouldn't be called by others in the public interface is just lazy, and increases maintenance down the road._
+
+
+#### `protected` is likely not correct; only use it for the template method pattern and even then, would a lambda or proc work better?
+
+Why? _Protected is used to allow subclasses to call non-public methods.  This implies a potentially complex type hierarchy, which is likely not correct for what you are doing._
+
+
+#### Avoid the `ClassMethods` pattern for sharing class methods via a module, since simple use of `extend` will do
+
+Why? _Although it was idiomatic in Rails, the whole idea of overriding `included` to call `extend` is a bit overkill.  The client code can simply use `extend`.  You *could* use the `InstanceMethods` concept to add instance level methods if you like. See [this article from Yehuda Katz](http://yehudakatz.com/2009/11/12/better-ruby-idioms/) for more info._
+
+```ruby
+module Helper
+  def has_strategy(strat)
+    cattr_accessor :strategy
+    # or singleton_class.send(:attr_accessor,:strategy) if not in Rails land
+    self.strategy = strat
+    include InstanceMethods
+  end
+
+  module InstanceMethods
+    def operate
+      case self.class.strategy
+      when :foo then puts "FOO!"
+      when :bar then puts "BAR!"
+      else
+        puts "Doing #{self.class.strategy}"
+      end
+    end
+  end
+end
+
+class UsesHelper
+  extend Helper
+
+  has_strategy :foo
+end
+
+UsesHelper.new.operate
+```
+
+#### Do not use ivars as a way of avoiding method parameters.
+
+Why? _Instance variables are a form of global data, and your routines' complexity increases when their input comes from multiple sources.  If the instance variables control flow or logic, pass them in as parameters_
+
+
+#### Private methods should be used to make public methods clear; they should avoid reliance on ivars if at all possible
+
+Why? _Private methods that do not rely on instance variables can very easily be extracted to new classes when things get compledx_
+
+
+#### Private methods calling more private methods might indicate a second class is hiding inside this class
+
+
+
+## Documentation
+
+### Classes And Modules
+
+#### Rubydoc all classes with at least the purpose of the class
+
+Why? _Naming is hard; documentation helps explain what a class is for_
+
+
+#### For non-namespaced modules, the Rubydoc should include the names and purpose of all methods that a class is expected to provide when mixing in
+
+Why? _Because we don't have types, the user of your module needs to know what methods to implement to make the module work_
+
+
+#### Summarize the purpose of the class or module as the first line
+
+Why? _This lets someone see, at a glance, what the construct is for_
+
+
+#### Do not start documentation with 'This class' or 'This module'
+
+Why? _We know what kind of thing it is; just state what it does_
+
+
+### General
+
+#### Use RDoc instead of YARD or TomDoc
+
+Why? _RDoc.info does not support TomDoc, and YARD is way too heavyweight_
+
+
+#### Do not surround class or method names in your project with code blocks
+
+Why? _RDoc will link to methods or classes in your project_
+
+
+#### DO surround class or method names from other libraries with code blocks
+
+Why? _This makes it clear that you mean a method name or class, because RDoc cannot link outside of your codebase_
+
+
+#### Reserve inline comments for answering 'Why?' questions
+
+Why? _Don't restate what the code does, but DO explain why it works the way it does, especially if it does something in a suprising or weird way, from a business logic perspective_
+
+```ruby
+## Wrong; don't explain what the code does, we can read it
+def minor?
+  # Check if they are under 19
+  self.age < 19
+end
+
+## Right; explain the odd logic so others know it is intentional, with
+## a ref for more info as to why
+def minor?
+  # For our purposes, an 18-year-old is still a minor.  See
+  # ticket XYZ for a more detailed discussion
+  self.age < 19
+end
+```
+
+### Methods
+
+#### Rubydoc the parameter types and return types
+
+Why? _There's no other way to tell what the types are and it's just not nice to hide this info_
+
+
+#### Document all known keys, their types, and their default values for 'options hash' style params
+
+Why? _Because it's jerky not to; there's no other way to know what they are_
+
+```ruby
+# Makes a request
+#
+# url:: url to request
+# options:: options to control request:
+#           +:method+:: HTTP method to use as a String (default "GET")
+#           +:content_type+:: Mime type to include as a header, as a String (default "text/plain")
+#           +:if_modified_since+:: Date for if-modified-since header, default nil
+def request(url,options={})
+end
+```
+
+#### Document a method's purpose if its name alone cannot easily communicate it
+
+Why? _Good method names are preferred, but if it's somewhat complex, add a bit more about what the method does_
+
+
+#### Document the meaning of parameter types if their name alone isn't enough to communicate it
+
+Why? _Again, the parameter names should be meaningful, but if they don't fully explain things, throws us a bone_
+
+
+#### Do not document default parameter values
+
+Why? _These values show up in rdoc, so restating them is just a maintenance issue_
+
+
+#### Document the types of each attribute created with an `attr_` method
+
+Why? _No other way to know what the types are_
+
+
+### Readme
+
+#### There should be a README.
+
+Why? _Because a README is a nice way to explain what your code is/does_
+
+
+#### The README should explain what the library/app does, in one line
+
+Why? _Summarizing things in one line is helpful_
+
+
+#### The README should explain how to install your app/code
+
+Why? _Because not everyone knows what needs to be done, even if it's just `gem install`_
+
+
+#### The README should show the simplest example possible of using the library/app
+
+Why? _This, along with the description allows someone to understand your library/app in under a minute_
+
+
+#### The README should include a more detailed overview, pointing to key classes or modules
+
+Why? _When rendered as RDoc, these classes link to where the user should start reading to get a deeper perspective_
+
+
+#### Additional info for developing with the code
+
+Why? _If you want contributions, developers need to know how to work with your code_
+
+
 ## Files
 
 #### One class/module per file
@@ -428,265 +687,6 @@ end
 #### If your method returns true or false, be sure those are the only values returned.
 
 Why? _Returning a 'truthy' value will lead to unintended consequences, and could lead to complex dependencies in your code.  You don't need the hassle_
-
-
-## Design
-
-#### Classes should do one thing and one thing only
-
-
-
-#### If a class has only one method, consider using a lambda or proc instead
-
-Why? _A class with one method, especially Doer.do, is just a function, so make it a lambda_
-
-
-#### For a base class with abstract methods, include the methods in the base class and have them raise.
-
-Why? _This gives you a single place to document which methods subclasses are expected to implement, and ensures that, at least at runtime, they **are** implemented_
-
-
-#### Avoid instantiating classes inside other classes.  Prefer dependency injection and default parameter values.
-
-Why? _This makes it easier to test the classes, but doesn't require Herculean efforts to instantiate classes at runtime:_
-
-```ruby
-class PersonFormatter
-  def format(person)
-    # whatever
-  end
-end
-
-# Wrong; we are tightly coupled to an implementation and have to use
-# crazy mocks to fake this out
-class View
-  def render
-    # code
-    puts PersonFormatter.new.format(person)
-    # more code
-  end
-
-
-# Correct; Option 1 - constructor injection
-class View
-  def initialize(person_formatter=PersonFormatter.new)
-    @person_formatter = person_formatter
-  end
-
-  def render
-    # code
-    puts @person_formatter.format(person)
-    # more code
-  end
-end
-
-# Correct; Option 2 - setter injection with a sensible default
-class View
-  attr_writer :person_formatter
-  def initialize
-    @person_formatter = PersonFormatter.new
-  end
-
-  def render
-    # code
-    puts @person_formatter.format(person)
-    # more code
-  end
-end
-```
-
-#### Don't make methods public unless they are part of the public interface
-
-Why? _Public is the way to formally document the contract of your class.  Putting methods that shouldn't be called by others in the public interface is just lazy, and increases maintenance down the road._
-
-
-#### `protected` is likely not correct; only use it for the template method pattern and even then, would a lambda or proc work better?
-
-Why? _Protected is used to allow subclasses to call non-public methods.  This implies a potentially complex type hierarchy, which is likely not correct for what you are doing._
-
-
-#### Avoid the `ClassMethods` pattern for sharing class methods via a module, since simple use of `extend` will do
-
-Why? _Although it was idiomatic in Rails, the whole idea of overriding `included` to call `extend` is a bit overkill.  The client code can simply use `extend`.  You *could* use the `InstanceMethods` concept to add instance level methods if you like. See [this article from Yehuda Katz](http://yehudakatz.com/2009/11/12/better-ruby-idioms/) for more info._
-
-```ruby
-module Helper
-  def has_strategy(strat)
-    cattr_accessor :strategy
-    # or singleton_class.send(:attr_accessor,:strategy) if not in Rails land
-    self.strategy = strat
-    include InstanceMethods
-  end
-
-  module InstanceMethods
-    def operate
-      case self.class.strategy
-      when :foo then puts "FOO!"
-      when :bar then puts "BAR!"
-      else
-        puts "Doing #{self.class.strategy}"
-      end
-    end
-  end
-end
-
-class UsesHelper
-  extend Helper
-
-  has_strategy :foo
-end
-
-UsesHelper.new.operate
-```
-
-#### Do not use ivars as a way of avoiding method parameters.
-
-Why? _Instance variables are a form of global data, and your routines' complexity increases when their input comes from multiple sources.  If the instance variables control flow or logic, pass them in as parameters_
-
-
-#### Private methods should be used to make public methods clear; they should avoid reliance on ivars if at all possible
-
-Why? _Private methods that do not rely on instance variables can very easily be extracted to new classes when things get compledx_
-
-
-#### Private methods calling more private methods might indicate a second class is hiding inside this class
-
-
-
-## Documentation
-
-### General
-
-#### Use RDoc instead of YARD or TomDoc
-
-Why? _RDoc.info does not support TomDoc, and YARD is way too heavyweight_
-
-
-#### Do not surround class or method names in your project with code blocks
-
-Why? _RDoc will link to methods or classes in your project_
-
-
-#### DO surround class or method names from other libraries with code blocks
-
-Why? _This makes it clear that you mean a method name or class, because RDoc cannot link outside of your codebase_
-
-
-#### Reserve inline comments for answering 'Why?' questions
-
-Why? _Don't restate what the code does, but DO explain why it works the way it does, especially if it does something in a suprising or weird way, from a business logic perspective_
-
-```ruby
-## Wrong; don't explain what the code does, we can read it
-def minor?
-  # Check if they are under 19
-  self.age < 19
-end
-
-## Right; explain the odd logic so others know it is intentional, with
-## a ref for more info as to why
-def minor?
-  # For our purposes, an 18-year-old is still a minor.  See
-  # ticket XYZ for a more detailed discussion
-  self.age < 19
-end
-```
-
-### Readme
-
-#### There should be a README.
-
-Why? _Because a README is a nice way to explain what your code is/does_
-
-
-#### The README should explain what the library/app does, in one line
-
-Why? _Summarizing things in one line is helpful_
-
-
-#### The README should explain how to install your app/code
-
-Why? _Because not everyone knows what needs to be done, even if it's just `gem install`_
-
-
-#### The README should show the simplest example possible of using the library/app
-
-Why? _This, along with the description allows someone to understand your library/app in under a minute_
-
-
-#### The README should include a more detailed overview, pointing to key classes or modules
-
-Why? _When rendered as RDoc, these classes link to where the user should start reading to get a deeper perspective_
-
-
-#### Additional info for developing with the code
-
-Why? _If you want contributions, developers need to know how to work with your code_
-
-
-### Methods
-
-#### Rubydoc the parameter types and return types
-
-Why? _There's no other way to tell what the types are and it's just not nice to hide this info_
-
-
-#### Document all known keys, their types, and their default values for 'options hash' style params
-
-Why? _Because it's jerky not to; there's no other way to know what they are_
-
-```ruby
-# Makes a request
-#
-# url:: url to request
-# options:: options to control request:
-#           +:method+:: HTTP method to use as a String (default "GET")
-#           +:content_type+:: Mime type to include as a header, as a String (default "text/plain")
-#           +:if_modified_since+:: Date for if-modified-since header, default nil
-def request(url,options={})
-end
-```
-
-#### Document a method's purpose if its name alone cannot easily communicate it
-
-Why? _Good method names are preferred, but if it's somewhat complex, add a bit more about what the method does_
-
-
-#### Document the meaning of parameter types if their name alone isn't enough to communicate it
-
-Why? _Again, the parameter names should be meaningful, but if they don't fully explain things, throws us a bone_
-
-
-#### Do not document default parameter values
-
-Why? _These values show up in rdoc, so restating them is just a maintenance issue_
-
-
-#### Document the types of each attribute created with an `attr_` method
-
-Why? _No other way to know what the types are_
-
-
-### Classes And Modules
-
-#### Rubydoc all classes with at least the purpose of the class
-
-Why? _Naming is hard; documentation helps explain what a class is for_
-
-
-#### For non-namespaced modules, the Rubydoc should include the names and purpose of all methods that a class is expected to provide when mixing in
-
-Why? _Because we don't have types, the user of your module needs to know what methods to implement to make the module work_
-
-
-#### Summarize the purpose of the class or module as the first line
-
-Why? _This lets someone see, at a glance, what the construct is for_
-
-
-#### Do not start documentation with 'This class' or 'This module'
-
-Why? _We know what kind of thing it is; just state what it does_
 
 
 ## Testing
