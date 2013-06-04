@@ -131,7 +131,7 @@ Why? _Visual clearance_
 Why? _I don't get much value from visual clearance for the end blocks that 'close' a class or module_
 
 
-#### Class methods should be defined via `def self.class_name` and not inside a `class << self`
+#### Class methods should be defined via `def self.method_name` and not inside a `class << self`
 
 Why? _This reduces errors caused by moving methods around, and also doesn't require you to scroll up in the class to determine what type of method it is; you can see it instantly_
 
